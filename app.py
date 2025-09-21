@@ -6,25 +6,32 @@ from deepface import DeepFace
 from PIL import Image
 import matplotlib.pyplot as plt
 from tkinter import Tk, filedialog
+import gdown
+
+# -----------------------------
+# Step 0: Download pickle files from Google Drive
+# -----------------------------
+# Replace with your actual file IDs from the Drive folder
+EMBEDDING_FILE_ID = "YOUR_EMBEDDING_FILE_ID"
+FILENAMES_FILE_ID = "YOUR_FILENAMES_FILE_ID"
+
+def download_if_missing(file_id, local_path):
+    if not os.path.exists(local_path):
+        url = f"https://drive.google.com/uc?id={file_id}"
+        print(f"Downloading {local_path} ...")
+        gdown.download(url, local_path, quiet=False)
+    else:
+        print(f"{local_path} already exists.")
+
+download_if_missing(EMBEDDING_FILE_ID, "embedding.pkl")
+download_if_missing(FILENAMES_FILE_ID, "filenames.pkl")
 
 # -----------------------------
 # Step 1: Load image filenames
 # -----------------------------
-data_dir = "D:/all/which-bollywood-celebrity-are-you-main/data/Bollywood_celeb_face_localized/bollywood_celeb_faces_0"
-
 filenames_pkl = "filenames.pkl"
-if not os.path.exists(filenames_pkl):
-    actors = os.listdir(data_dir)
-    filenames = [
-        os.path.join(data_dir, actor, file)
-        for actor in actors
-        for file in os.listdir(os.path.join(data_dir, actor))
-    ]
-    with open(filenames_pkl, "wb") as f:
-        pickle.dump(filenames, f)
-else:
-    with open(filenames_pkl, "rb") as f:
-        filenames = pickle.load(f)
+with open(filenames_pkl, "rb") as f:
+    filenames = pickle.load(f)
 
 # -----------------------------
 # Step 2: Extract features (if not done already)
