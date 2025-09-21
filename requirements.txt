@@ -4,6 +4,5 @@ tensorflow==2.12.0
 opencv-python-headless==4.8.1.78
 mtcnn==0.1.1
 Pillow==9.5.0
-numpy==1.24.4
 tqdm==4.66.1
 matplotlib==3.8.1
