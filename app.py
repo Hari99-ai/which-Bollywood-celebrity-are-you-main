@@ -5,26 +5,36 @@ from tqdm import tqdm
 from deepface import DeepFace
 from PIL import Image
 import streamlit as st
+import gdown  # For downloading from Google Drive
 
 # -----------------------------
 # Step 0: Create folders
 # -----------------------------
 os.makedirs("uploads", exist_ok=True)
-os.makedirs("celebrity_db", exist_ok=True)  # Make sure your celebrity images are here
+os.makedirs("celebrity_db", exist_ok=True)
 
 # -----------------------------
-# Step 1: Load image filenames
+# Step 1: Download celebrity images from Google Drive
 # -----------------------------
-data_dir = "data/Bollywood_celeb_face_localized/bollywood_celeb_faces_0"
-filenames_pkl = "filenames.pkl"
+# Map of celebrity file names to Google Drive file IDs
+# Example: {"shahrukh_khan.jpg": "FILE_ID"}
+celebrity_files = {
+    "shahrukh_khan.jpg": "PUT_FILE_ID_HERE",
+    # Add more: "celebrity_name.jpg": "file_id"
+}
+
+for file_name, file_id in celebrity_files.items():
+    file_path = os.path.join("celebrity_db", file_name)
+    if not os.path.exists(file_path):
+        gdown.download(f"https://drive.google.com/uc?id={file_id}", file_path, quiet=False)
+
+# -----------------------------
+# Step 2: Load filenames
+# -----------------------------
+filenames_pkl = "successful_filenames.pkl"
 
 if not os.path.exists(filenames_pkl):
-    actors = os.listdir(data_dir)
-    filenames = [
-        os.path.join(data_dir, actor, file)
-        for actor in actors
-        for file in os.listdir(os.path.join(data_dir, actor))
-    ]
+    filenames = [os.path.join("celebrity_db", file) for file in os.listdir("celebrity_db")]
     with open(filenames_pkl, "wb") as f:
         pickle.dump(filenames, f)
 else:
@@ -32,12 +42,11 @@ else:
         filenames = pickle.load(f)
 
 # -----------------------------
-# Step 2: Extract features (if not done already)
+# Step 3: Extract features (if not done already)
 # -----------------------------
 embedding_pkl = "embedding.pkl"
 if not os.path.exists(embedding_pkl):
     def feature_extractor(img_path):
-        """Extract deep features using VGG-Face"""
         embedding = DeepFace.represent(img_path=img_path, model_name='VGG-Face', enforce_detection=False)
         return np.array(embedding[0]["embedding"])
 
@@ -48,10 +57,10 @@ else:
     with open(embedding_pkl, "rb") as f:
         features = pickle.load(f)
 
-st.success("✅ Feature extraction completed and loaded.")
+st.success("✅ Celebrity features loaded.")
 
 # -----------------------------
-# Step 3: Upload your image
+# Step 4: Upload your image
 # -----------------------------
 st.title("Which Bollywood Celebrity Are You?")
 uploaded_file = st.file_uploader("Choose an image...", type=["jpg", "jpeg", "png"])
@@ -64,12 +73,12 @@ if uploaded_file is not None:
     st.image(save_path, caption="Your uploaded image", use_column_width=True)
 
     # -----------------------------
-    # Step 4: Find the best celebrity match
+    # Step 5: Find the best celebrity match
     # -----------------------------
     try:
         result = DeepFace.find(
             img_path=save_path,
-            db_path="celebrity_db",  # Path to pre-stored celebrity images
+            db_path="celebrity_db",
             model_name="VGG-Face",
             enforce_detection=False
         )
@@ -79,7 +88,6 @@ if uploaded_file is not None:
             predicted_actor = os.path.basename(best_match).replace("_", " ").split(".")[0]
             st.success(f"✅ You look like: {predicted_actor}")
 
-            # Show side-by-side images
             col1, col2 = st.columns(2)
             with col1:
                 st.image(save_path, caption="Your Uploaded Image")
