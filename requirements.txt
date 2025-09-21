@@ -6,3 +6,5 @@ mtcnn==0.1.1
 Pillow==9.5.0
 tqdm==4.66.1
 matplotlib==3.8.1
+gdown==4.7.1
+numpy==1.26.0
