@@ -1,11 +1,9 @@
 streamlit
-deepface
-opencv-python-headless
-mtcnn
-Pillow>=8.0.0,<10.0.0
+tensorflow-cpu>=2.15.0
+opencv-python-headless>=4.8.0
+numpy>=1.24.0
+Pillow>=8.0.0,<11.0.0
 scikit-learn
-numpy>=1.21.0
 pandas
-gdown
 requests
 
