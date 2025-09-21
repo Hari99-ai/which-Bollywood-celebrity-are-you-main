@@ -1,8 +1,11 @@
-streamlit==1.27.0
-deepface==0.0.87
-mtcnn==0.1.1
-opencv-python-headless==4.8.1.78
-Pillow<10
-numpy==1.24.3
-
+streamlit
+deepface
+opencv-python-headless
+mtcnn
+Pillow>=8.0.0,<10.0.0
+scikit-learn
+numpy>=1.21.0
+pandas
+gdown
+requests
 
