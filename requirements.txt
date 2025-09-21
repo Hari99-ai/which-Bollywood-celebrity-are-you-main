@@ -1,8 +1,9 @@
-streamlit
-deepface
-mtcnn
+streamlit==1.27.0
+deepface==0.0.87
+mtcnn==0.1.1
 opencv-python-headless==4.7.0.72
-Pillow
-numpy
-scikit-learn
-tqdm
+Pillow==10.0.0
+numpy==1.25.0
+scikit-learn==1.3.2
+tqdm==4.66.1
+
