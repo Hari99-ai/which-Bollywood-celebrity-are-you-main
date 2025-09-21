@@ -5,7 +5,7 @@ from tqdm import tqdm
 from deepface import DeepFace
 from PIL import Image
 import streamlit as st
-import gdown  # For downloading from Google Drive
+import gdown
 
 # -----------------------------
 # Step 0: Create folders
@@ -14,19 +14,23 @@ os.makedirs("uploads", exist_ok=True)
 os.makedirs("celebrity_db", exist_ok=True)
 
 # -----------------------------
-# Step 1: Download celebrity images from Google Drive
+# Step 1: Download celebrity images manually from Drive folder
 # -----------------------------
-# Map of celebrity file names to Google Drive file IDs
-# Example: {"shahrukh_khan.jpg": "FILE_ID"}
+# Folder URL: https://drive.google.com/drive/folders/1CJqLClJcfQH8Rd5bjnb4DHcJbkMXehh5?usp=sharing
+# Manually download the images and place them in "celebrity_db"
+# Or, if you know individual file IDs, use this map:
 celebrity_files = {
-    "shahrukh_khan.jpg": "PUT_FILE_ID_HERE",
-    # Add more: "celebrity_name.jpg": "file_id"
+    # "shahrukh_khan.jpg": "FILE_ID",
+    # "salman_khan.jpg": "FILE_ID",
 }
 
 for file_name, file_id in celebrity_files.items():
     file_path = os.path.join("celebrity_db", file_name)
     if not os.path.exists(file_path):
-        gdown.download(f"https://drive.google.com/uc?id={file_id}", file_path, quiet=False)
+        try:
+            gdown.download(f"https://drive.google.com/uc?id={file_id}", file_path, quiet=False)
+        except Exception as e:
+            st.warning(f"Could not download {file_name}: {e}")
 
 # -----------------------------
 # Step 2: Load filenames
