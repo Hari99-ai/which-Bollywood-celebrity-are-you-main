@@ -1,7 +1,20 @@
-streamlit==1.29.0
-deepface==0.0.79
+# Streamlit for the app UI
+streamlit>=1.29.0
+
+# DeepFace for face recognition (latest compatible)
+deepface>=0.0.82
+
+# TensorFlow compatible with DeepFace and Python 3.13
+tensorflow>=2.20.0
+
+# MTCNN for face detection
 mtcnn==0.1.1
+
+# OpenCV headless for image processing
 opencv-python-headless==4.8.1.78
-Pillow==9.5.0
-tensorflow==2.13.0
-gdown==4.7.1
+
+# Pillow for image handling
+Pillow>=10.0.0
+
+# Optional: required for rich exception logging in Streamlit
+rich>=14.1.0
