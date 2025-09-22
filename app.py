@@ -207,17 +207,56 @@ def recommend_top_n(feature_list, features, n=3):
 def extract_celebrity_name(file_path):
     """Extract celebrity name from file path"""
     try:
-        # Get the directory name (celebrity name) from the path
-        parts = file_path.split(os.sep)
+        # Convert forward slashes to backslashes for Windows compatibility
+        file_path = file_path.replace('\\', '/')
+        
+        # Split the path and get meaningful parts
+        parts = file_path.split('/')
+        
+        # Try different approaches to extract celebrity name
+        celebrity_name = None
+        
+        # Method 1: Look for directory name (most common)
         if len(parts) >= 2:
-            celebrity_name = parts[-2]  # Get parent directory name
-        else:
-            celebrity_name = os.path.splitext(os.path.basename(file_path))[0]
+            potential_name = parts[-2]  # Parent directory
+            if potential_name and potential_name.lower() not in ['data', 'images', 'celebrity_db', 'bollywood_celeb_faces_0', 'dataset']:
+                celebrity_name = potential_name
+        
+        # Method 2: If no good directory name, use filename
+        if not celebrity_name or len(celebrity_name) < 2:
+            filename = os.path.basename(file_path)
+            celebrity_name = os.path.splitext(filename)[0]
+        
+        # Method 3: If still no good name, try to extract from full path
+        if not celebrity_name or celebrity_name.lower() in ['main', 'image', 'photo', 'pic']:
+            # Look for recognizable names in the path
+            path_lower = file_path.lower()
+            
+            # Common Bollywood celebrity names to look for
+            celebrity_keywords = [
+                'shah_rukh_khan', 'shahrukh_khan', 'srk',
+                'salman_khan', 'aamir_khan', 'akshay_kumar',
+                'hrithik_roshan', 'ranbir_kapoor', 'ranveer_singh',
+                'deepika_padukone', 'priyanka_chopra', 'katrina_kaif',
+                'alia_bhatt', 'kareena_kapoor', 'sonam_kapoor',
+                'anushka_sharma', 'vidya_balan', 'kangana_ranaut'
+            ]
+            
+            for keyword in celebrity_keywords:
+                if keyword in path_lower:
+                    celebrity_name = keyword
+                    break
         
         # Clean up the name
-        celebrity_name = celebrity_name.replace('_', ' ').replace('-', ' ')
-        return celebrity_name.title()
-    except:
+        if celebrity_name:
+            celebrity_name = celebrity_name.replace('_', ' ').replace('-', ' ')
+            celebrity_name = ' '.join(word.capitalize() for word in celebrity_name.split())
+            return celebrity_name
+        else:
+            # Fallback: use a generic name with index
+            return f"Bollywood Celebrity"
+            
+    except Exception as e:
         return "Unknown Celebrity"
 
 def create_progress_bar(score):
@@ -251,27 +290,50 @@ def create_progress_bar(score):
     </div>
     """
 
-def display_celebrity_image(file_path, celebrity_name):
-    """Display celebrity image with fallback"""
+def display_celebrity_image(file_path, celebrity_name, rank):
+    """Display celebrity image with enhanced fallback"""
     try:
         if os.path.exists(file_path):
             st.image(file_path, use_container_width=True, caption=f"🎭 {celebrity_name}")
         else:
-            # Fallback: Show placeholder with celebrity name
+            # Enhanced fallback: Show placeholder with more information
+            rank_colors = ["#FFD700", "#C0C0C0", "#CD7F32"]  # Gold, Silver, Bronze
+            rank_color = rank_colors[rank] if rank < 3 else "#9B59B6"
+            
             st.markdown(f"""
-            <div class="placeholder-image">
+            <div style="
+                background: linear-gradient(135deg, {rank_color}20, {rank_color}40);
+                border: 3px solid {rank_color};
+                color: #333;
+                padding: 40px 20px;
+                text-align: center;
+                border-radius: 15px;
+                font-size: 1.1rem;
+                font-weight: bold;
+                margin: 10px 0;
+            ">
                 🎭<br>
-                {celebrity_name}<br>
-                <small>Image not available</small>
+                <div style="font-size: 1.3rem; margin: 10px 0;">{celebrity_name}</div>
+                <div style="font-size: 0.9rem; color: #666;">Celebrity #{rank + 1} Match</div>
+                <div style="font-size: 0.8rem; color: #888; margin-top: 10px;">Image not available in database</div>
             </div>
             """, unsafe_allow_html=True)
     except Exception as e:
         # Another fallback for any image loading errors
         st.markdown(f"""
-        <div class="placeholder-image">
+        <div style="
+            background: linear-gradient(135deg, #E74C3C20, #E74C3C40);
+            border: 2px solid #E74C3C;
+            color: #333;
+            padding: 40px 20px;
+            text-align: center;
+            border-radius: 15px;
+            font-size: 1.1rem;
+            font-weight: bold;
+        ">
             🎭<br>
-            {celebrity_name}<br>
-            <small>Image unavailable</small>
+            <div style="font-size: 1.2rem; margin: 10px 0;">{celebrity_name}</div>
+            <div style="font-size: 0.8rem; color: #666;">Celebrity Match</div>
         </div>
         """, unsafe_allow_html=True)
 
