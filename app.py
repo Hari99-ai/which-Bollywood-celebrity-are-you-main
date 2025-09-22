@@ -98,7 +98,6 @@ def load_celebrity_data():
             features = pickle.load(f)
         with open("successful_filenames.pkl", "rb") as f:
             filenames = pickle.load(f)
-        # Clean invalid entries
         valid_indices = [i for i, (feat, name) in enumerate(zip(features, filenames)) if feat is not None and len(feat)>0 and name]
         features = [features[i] for i in valid_indices]
         filenames = [filenames[i] for i in valid_indices]
@@ -137,61 +136,57 @@ def compute_similarities(user_features, celebrity_features, filenames, top_k=3):
     return sorted(similarities, key=lambda x: x[0], reverse=True)[:top_k]
 
 def get_celebrity_name(filepath):
-    """
-    Extract clean celebrity name from a filename or nested path.
-
-    Examples:
-    - 'Data\\aamir Khan\\abhay Deol\\photo.jpg' -> 'abhay deol'
-    - 'bipasha basu.167' -> 'bipasha basu'
-    - 'ranveer_singh-123.png' -> 'ranveer singh'
-    """
     try:
-        # Normalize path separators
         parts = filepath.replace("\\", "/").split("/")
-        # Take the last meaningful part
         name_candidate = next((p for p in reversed(parts) if p.strip()), "")
-        # Remove extension if exists
         name_candidate = os.path.splitext(name_candidate)[0]
-        # Remove trailing numbers after dot or hyphen
         name_candidate = name_candidate.split('.')[0]
         name_candidate = ''.join([c for c in name_candidate if not c.isdigit()]).strip()
-        # Replace underscores and hyphens with space
         name_candidate = name_candidate.replace("_", " ").replace("-", " ")
-        # Convert multiple spaces to single space and lowercase
         name_candidate = ' '.join(name_candidate.split()).lower()
         return name_candidate
     except:
         return "unknown celebrity"
-
 
 def display_results(matches, user_img_path):
     if not matches:
         st.warning("❌ No matches found.")
         return
     st.markdown("## 🎭 Your Bollywood Celebrity Matches")
+    
     col1, col2, col3 = st.columns([1,2,1])
     with col2:
         st.image(user_img_path, caption="Your Photo", width=250)
+    
     top_similarity = matches[0][0]
-    if top_similarity>=75: st.balloons(); st.success(f"🎉 Amazing! {top_similarity:.1f}% similarity with top match!")
-    elif top_similarity>=60: st.success(f"🌟 Great match! {top_similarity:.1f}% similarity!")
+    if top_similarity >= 75:
+        st.balloons()
+        st.success(f"🎉 Amazing! {top_similarity:.1f}% similarity with top match!")
+    elif top_similarity >= 60:
+        st.success(f"🌟 Great match! {top_similarity:.1f}% similarity!")
 
     st.markdown("---")
-    for rank,(sim, celeb_path) in enumerate(matches,1):
+    for rank, (sim, celeb_path) in enumerate(matches, 1):
         celeb_name = get_celebrity_name(celeb_path)
         st.markdown(f'<div class="match-container">', unsafe_allow_html=True)
-        col1,col2 = st.columns([1,2])
+        col1, col2 = st.columns([1, 2])
+
         with col1:
-            st.markdown(f"""<div style="background: linear-gradient(45deg, #FF6B35, #F7931E); color:white; padding:2rem; border-radius:10px; text-align:center; margin:1rem 0;">
-                <h3>🎬</h3><h4>{celeb_name}</h4></div>""", unsafe_allow_html=True)
+            if os.path.exists(celeb_path):
+                st.image(celeb_path, caption=celeb_name, width=150)
+            else:
+                st.markdown(f"""<div style="background: linear-gradient(45deg, #FF6B35, #F7931E); color:white; padding:2rem; border-radius:10px; text-align:center; margin:1rem 0;">
+                    <h3>🎬</h3><h4>{celeb_name}</h4></div>""", unsafe_allow_html=True)
+
         with col2:
             st.markdown(f"### 🏆 #{rank} Match")
             st.metric("Similarity Score", f"{sim:.1f}%")
             st.progress(min(sim/100,1.0))
-            if sim>=75: st.success("🔥 Excellent Match!")
-            elif sim>=60: st.info("⭐ Very Good Match")
-            elif sim>=45: st.info("👍 Good Match")
+            if sim >= 75: st.success("🔥 Excellent Match!")
+            elif sim >= 60: st.info("⭐ Very Good Match")
+            elif sim >= 45: st.info("👍 Good Match")
             else: st.info("🤔 Fair Match")
+
         st.markdown('</div>', unsafe_allow_html=True)
         st.markdown("---")
 
@@ -202,7 +197,7 @@ def main():
     st.markdown('<h1 class="main-header">🎬 Bollywood Celebrity Matcher</h1>', unsafe_allow_html=True)
     st.markdown("""<div style="text-align:center; margin-bottom:2rem;">
     <h3>Discover your Bollywood doppelgänger! ✨</h3>
-    <p>Upload your photo and let AI find your celebrity twin.</p>
+    <p>Upload your photo or take a selfie to find your celebrity twin.</p>
     </div>""", unsafe_allow_html=True)
 
     gdown, DeepFace = import_libraries()
@@ -221,15 +216,19 @@ def main():
         st.stop()
     st.success(f"✅ Ready! {len(celebrity_features)} profiles loaded.")
 
-    st.markdown("## 📸 Upload Your Photo")
+    st.markdown("## 📸 Upload Your Photo or Take a Selfie")
     tab1, tab2 = st.tabs(["📁 Upload Image", "📷 Camera"])
     image_file = None
     with tab1:
         uploaded_file = st.file_uploader("Choose your image", type=["jpg","jpeg","png","webp"])
-        if uploaded_file: image_file = uploaded_file; st.image(uploaded_file, width=300)
+        if uploaded_file: 
+            image_file = uploaded_file
+            st.image(uploaded_file, width=300)
     with tab2:
-        camera_photo = st.camera_input("Take a selfie")
-        if camera_photo: image_file = camera_photo; st.image(camera_photo, width=300)
+        camera_photo = st.camera_input("Take a selfie (Allow camera access)")
+        if camera_photo: 
+            image_file = camera_photo
+            st.image(camera_photo, width=300)
 
     if image_file and st.button("🔍 Find My Celebrity Match!"):
         try:
@@ -242,7 +241,8 @@ def main():
                 matches = compute_similarities(user_features, celebrity_features, filenames)
                 if matches: display_results(matches, save_path)
                 else: st.error("❌ No suitable matches found.")
-            else: st.error("❌ Could not analyze photo. Try a clearer image.")
+            else:
+                st.error("❌ Could not analyze photo. Try a clearer image.")
             os.remove(save_path)
         except Exception as e:
             st.error(f"❌ Processing error: {e}")
@@ -261,4 +261,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
