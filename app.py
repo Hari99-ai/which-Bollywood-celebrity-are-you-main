@@ -285,7 +285,7 @@ def display_results(matches, user_img_path, all_filenames):
 def main():
     st.markdown('<h1 class="main-header">🎬 Celebrity Matcher</h1>', unsafe_allow_html=True)
     st.markdown("""<div style="text-align:center; margin-bottom:2rem;">
-    <h3>Discover your Bollywood doppelgänger! ✨</h3>
+    <h3>Discover your Celebrity doppelgänger! ✨</h3>
     <p>Upload your photo and let AI find your celebrity twin.</p>
     </div>""", unsafe_allow_html=True)
 
@@ -353,3 +353,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
