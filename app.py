@@ -1,4 +1,4 @@
-#!pip install streamlit deepface mtcnn opencv-python-headless Pillow scikit-learn
+#!pip install streamlit deepface mtcnn opencv-python-headless Pillow scikit-learn gdown
 
 import streamlit as st
 from PIL import Image
@@ -9,6 +9,11 @@ from mtcnn import MTCNN
 from deepface import DeepFace
 from sklearn.metrics.pairwise import cosine_similarity
 import pickle
+import gdown
+import requests
+
+# Your Google Drive folder ID for celebrity images
+CELEBRITY_FOLDER_ID = "1CJqLClJcfQH8Rd5bjnb4DHcJbkMXehh5"
 
 # ------------------------
 # Page Configuration
@@ -20,7 +25,7 @@ st.set_page_config(
 )
 
 # ------------------------
-# Custom CSS
+# Custom CSS (same as before)
 # ------------------------
 st.markdown("""
 <style>
@@ -105,6 +110,31 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ------------------------
+# Download celebrity images from Google Drive
+# ------------------------
+@st.cache_data
+def download_celebrity_images():
+    """Download celebrity images from Google Drive folder"""
+    celebrity_dir = "celebrity_images"
+    os.makedirs(celebrity_dir, exist_ok=True)
+    
+    try:
+        st.info("📥 Downloading celebrity images... This may take a moment on first run.")
+        
+        # Download the entire folder
+        gdown.download_folder(
+            f"https://drive.google.com/drive/folders/{CELEBRITY_FOLDER_ID}",
+            output=celebrity_dir,
+            quiet=False
+        )
+        
+        st.success("✅ Celebrity images downloaded successfully!")
+        return celebrity_dir
+    except Exception as e:
+        st.warning(f"⚠️ Could not download celebrity images: {e}")
+        return None
+
+# ------------------------
 # Load embeddings
 # ------------------------
 @st.cache_data
@@ -117,10 +147,6 @@ def load_embeddings():
         st.error(f"❌ Error loading celebrity database: {e}")
         return None, None
 
-feature_list, filenames = load_embeddings()
-if feature_list is None or filenames is None:
-    st.stop()
-
 # ------------------------
 # Initialize face detector
 # ------------------------
@@ -128,7 +154,15 @@ if feature_list is None or filenames is None:
 def load_detector():
     return MTCNN()
 
+# Initialize everything
+feature_list, filenames = load_embeddings()
+if feature_list is None or filenames is None:
+    st.stop()
+
 detector = load_detector()
+
+# Download celebrity images on first run
+celebrity_dir = download_celebrity_images()
 
 # ------------------------
 # Helper functions
@@ -140,16 +174,14 @@ def save_uploaded_image(uploaded_image):
         file_ext = uploaded_image.name.split('.')[-1].lower()
         file_path = os.path.join('uploads', uploaded_image.name)
 
-        # Save uploaded file
         with open(file_path, 'wb') as f:
             f.write(uploaded_image.getbuffer())
 
-        # Convert webp to png
         if file_ext == 'webp':
             img = Image.open(file_path).convert("RGB")
             new_file_path = os.path.splitext(file_path)[0] + ".png"
             img.save(new_file_path, "PNG")
-            os.remove(file_path)  # remove original webp
+            os.remove(file_path)
             file_path = new_file_path
 
         return file_path
@@ -191,52 +223,62 @@ def recommend_top_n(feature_list, features, n=3):
     """Return top n matching indices and scores"""
     similarity = [cosine_similarity(features.reshape(1, -1), f.reshape(1, -1))[0][0] for f in feature_list]
     top_indices = np.argsort(similarity)[::-1][:n]
-    top_scores = [similarity[i] * 100 for i in top_indices]  # percentage
+    top_scores = [similarity[i] * 100 for i in top_indices]
     return top_indices, top_scores
 
 def extract_celebrity_name(file_path):
     """Extract celebrity name from file path"""
     try:
-        # Convert path separators for consistency
         file_path = file_path.replace('\\', '/')
         parts = file_path.split('/')
         
-        # Try to find celebrity name in directory structure
         celebrity_name = None
         
-        # Look for parent directory name (most common case)
+        # Look for parent directory name
         if len(parts) >= 2:
             potential_name = parts[-2]
-            # Filter out common non-celebrity directory names
-            if potential_name.lower() not in ['data', 'images', 'celebrity_db', 'bollywood_celeb_faces_0', 'dataset', 'main', 'which-bollywood-celebrity-are-you-main']:
+            if potential_name.lower() not in ['data', 'images', 'celebrity_db', 'bollywood_celeb_faces_0', 'dataset', 'main']:
                 celebrity_name = potential_name
         
-        # If no good directory name, use filename without extension
+        # Fallback to filename
         if not celebrity_name or len(celebrity_name) < 3:
             filename = os.path.basename(file_path)
             celebrity_name = os.path.splitext(filename)[0]
         
-        # Clean up the name
+        # Clean up
         if celebrity_name:
-            # Remove common prefixes/suffixes
             celebrity_name = celebrity_name.replace('_', ' ').replace('-', ' ')
-            # Remove file extensions and numbers
             import re
-            celebrity_name = re.sub(r'\d+', '', celebrity_name)  # Remove numbers
-            celebrity_name = re.sub(r'\.(jpg|jpeg|png|webp)$', '', celebrity_name, flags=re.IGNORECASE)
-            
-            # Capitalize words
+            celebrity_name = re.sub(r'\d+', '', celebrity_name)
             celebrity_name = ' '.join(word.capitalize() for word in celebrity_name.split() if word)
             
-            # If it's still generic, make it more specific
             if celebrity_name.lower() in ['main', 'image', 'photo', 'pic', '']:
-                return f"Bollywood Star {hash(file_path) % 100}"
+                return f"Bollywood Star #{hash(file_path) % 100}"
             
-            return celebrity_name if celebrity_name else "Unknown Celebrity"
+            return celebrity_name if celebrity_name else "Mystery Celebrity"
         
-        return "Mystery Celebrity"
-    except:
         return "Bollywood Celebrity"
+    except:
+        return "Unknown Celebrity"
+
+def find_celebrity_image(original_path, celebrity_name, celebrity_dir):
+    """Try to find celebrity image in downloaded folder"""
+    if not celebrity_dir or not os.path.exists(celebrity_dir):
+        return None
+    
+    # Search for images in the celebrity directory
+    for root, dirs, files in os.walk(celebrity_dir):
+        for file in files:
+            if file.lower().endswith(('.jpg', '.jpeg', '.png', '.webp')):
+                # Check if filename contains celebrity name or vice versa
+                file_lower = file.lower().replace('_', ' ').replace('-', ' ')
+                name_lower = celebrity_name.lower().replace(' ', '').replace('_', '').replace('-', '')
+                
+                if any(word in file_lower for word in celebrity_name.lower().split()) or \
+                   any(word in name_lower for word in file.lower().replace('_', ' ').replace('-', ' ').split()):
+                    return os.path.join(root, file)
+    
+    return None
 
 def create_progress_bar(score):
     """Create animated progress bar"""
@@ -266,43 +308,47 @@ def create_progress_bar(score):
     </div>
     """
 
-def display_celebrity_image(file_path, celebrity_name, rank):
-    """Display celebrity image with enhanced fallback"""
-    try:
-        if os.path.exists(file_path):
-            st.image(file_path, use_container_width=True, caption=f"🎭 {celebrity_name}")
-        else:
-            # Enhanced placeholder with rank-based styling
-            rank_colors = ["#FFD700", "#C0C0C0", "#CD7F32"]  # Gold, Silver, Bronze
-            rank_color = rank_colors[rank] if rank < 3 else "#9B59B6"
-            rank_medals = ["🏆", "🥈", "🥉"]
-            medal = rank_medals[rank] if rank < 3 else "🎭"
-            
-            st.markdown(f"""
-            <div style="
-                background: linear-gradient(135deg, {rank_color}20, {rank_color}40);
-                border: 3px solid {rank_color};
-                color: #333;
-                padding: 40px 20px;
-                text-align: center;
-                border-radius: 15px;
-                font-size: 1.1rem;
-                font-weight: bold;
-                margin: 10px 0;
-                min-height: 200px;
-                display: flex;
-                flex-direction: column;
-                justify-content: center;
-            ">
-                <div style="font-size: 3rem; margin-bottom: 15px;">{medal}</div>
-                <div style="font-size: 1.3rem; margin: 10px 0; color: {rank_color};">{celebrity_name}</div>
-                <div style="font-size: 0.9rem; color: #666;">Match #{rank + 1}</div>
-                <div style="font-size: 0.8rem; color: #888; margin-top: 10px;">Celebrity Image Not Available</div>
-            </div>
-            """, unsafe_allow_html=True)
-    except Exception:
-        # Simple fallback
-        st.info(f"🎭 {celebrity_name}\n\nCelebrity #{rank + 1}")
+def display_celebrity_image(original_path, celebrity_name, rank, celebrity_dir):
+    """Display celebrity image with search in downloaded folder"""
+    # First try original path
+    if os.path.exists(original_path):
+        st.image(original_path, use_container_width=True, caption=f"🎭 {celebrity_name}")
+        return
+    
+    # Try to find in downloaded celebrity folder
+    found_image = find_celebrity_image(original_path, celebrity_name, celebrity_dir)
+    if found_image and os.path.exists(found_image):
+        st.image(found_image, use_container_width=True, caption=f"🎭 {celebrity_name}")
+        return
+    
+    # Fallback to placeholder
+    rank_colors = ["#FFD700", "#C0C0C0", "#CD7F32"]
+    rank_color = rank_colors[rank] if rank < 3 else "#9B59B6"
+    rank_medals = ["🏆", "🥈", "🥉"]
+    medal = rank_medals[rank] if rank < 3 else "🎭"
+    
+    st.markdown(f"""
+    <div style="
+        background: linear-gradient(135deg, {rank_color}20, {rank_color}40);
+        border: 3px solid {rank_color};
+        color: #333;
+        padding: 40px 20px;
+        text-align: center;
+        border-radius: 15px;
+        font-size: 1.1rem;
+        font-weight: bold;
+        margin: 10px 0;
+        min-height: 200px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+    ">
+        <div style="font-size: 3rem; margin-bottom: 15px;">{medal}</div>
+        <div style="font-size: 1.3rem; margin: 10px 0; color: {rank_color};">{celebrity_name}</div>
+        <div style="font-size: 0.9rem; color: #666;">Match #{rank + 1}</div>
+        <div style="font-size: 0.8rem; color: #888; margin-top: 10px;">Image not found in database</div>
+    </div>
+    """, unsafe_allow_html=True)
 
 # ------------------------
 # Main UI
@@ -312,17 +358,7 @@ def display_celebrity_image(file_path, celebrity_name, rank):
 st.markdown('<h1 class="main-title">🎬 Which Bollywood Celebrity Are You?</h1>', unsafe_allow_html=True)
 st.markdown('<p class="subtitle">✨ Upload a photo or take a selfie to discover your Bollywood twin! ✨</p>', unsafe_allow_html=True)
 
-# Database status
 st.success(f"🎭 Celebrity database loaded successfully! ({len(feature_list)} celebrities ready for matching)")
-
-# Debug section (expandable)
-with st.expander("🔍 Debug: Sample celebrity file paths (Click to expand)"):
-    st.write("**Sample file paths from your database:**")
-    for i in range(min(5, len(filenames))):
-        st.code(f"{i+1}. {filenames[i]}")
-        extracted_name = extract_celebrity_name(filenames[i])
-        st.write(f"   → Extracted name: **{extracted_name}**")
-        st.markdown("---")
 
 # Upload method selection
 choice = st.radio("🎯 Choose input method:", ["📂 Upload Image", "📸 Take a Selfie"], horizontal=True)
@@ -357,7 +393,7 @@ if uploaded_image:
         if features is not None:
             top_indices, top_scores = recommend_top_n(feature_list, features, n=3)
 
-            # Special congratulations for high match
+            # Special congratulations
             if top_scores[0] >= 80:
                 st.balloons()
                 winner_name = extract_celebrity_name(filenames[top_indices[0]])
@@ -377,22 +413,18 @@ if uploaded_image:
                 celebrity_name = extract_celebrity_name(filenames[top_indices[i]])
                 score = top_scores[i]
                 
-                # Create celebrity card
                 st.markdown('<div class="celebrity-card">', unsafe_allow_html=True)
                 
-                # Create columns for layout
                 img_col, info_col = st.columns([1, 1])
                 
                 with img_col:
-                    display_celebrity_image(filenames[top_indices[i]], celebrity_name, i)
+                    display_celebrity_image(filenames[top_indices[i]], celebrity_name, i, celebrity_dir)
                 
                 with info_col:
-                    # Ranking emoji
                     ranking_emoji = "🏆" if i == 0 else "🥈" if i == 1 else "🥉"
                     
                     st.markdown(f'<h3 class="celebrity-name">#{i+1} {ranking_emoji} {celebrity_name}</h3>', unsafe_allow_html=True)
                     
-                    # Score display
                     score_color = "#28a745" if score >= 80 else "#ffc107" if score >= 65 else "#dc3545"
                     st.markdown(f"""
                     <div class="score-display" style="background: {score_color}20; border: 2px solid {score_color};">
@@ -400,10 +432,8 @@ if uploaded_image:
                     </div>
                     """, unsafe_allow_html=True)
                     
-                    # Progress bar
                     st.markdown(create_progress_bar(score), unsafe_allow_html=True)
                     
-                    # Quality indicator
                     if score >= 80:
                         st.success("🎯 Excellent Match!")
                     elif score >= 65:
