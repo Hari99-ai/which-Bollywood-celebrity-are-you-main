@@ -138,22 +138,31 @@ def compute_similarities(user_features, celebrity_features, filenames, top_k=3):
 
 def get_celebrity_name(filepath):
     """
-    Extract actual celebrity name from nested path like:
-    Data\aamir Khan\abhay Deol\photo.jpg
-    Returns: lowercase, properly spaced name, e.g., 'abhay deol'
+    Extract clean celebrity name from a filename or nested path.
+
+    Examples:
+    - 'Data\\aamir Khan\\abhay Deol\\photo.jpg' -> 'abhay deol'
+    - 'bipasha basu.167' -> 'bipasha basu'
+    - 'ranveer_singh-123.png' -> 'ranveer singh'
     """
     try:
         # Normalize path separators
         parts = filepath.replace("\\", "/").split("/")
         # Take the last meaningful part
         name_candidate = next((p for p in reversed(parts) if p.strip()), "")
-        # Remove extension
+        # Remove extension if exists
         name_candidate = os.path.splitext(name_candidate)[0]
-        # Replace underscores/hyphens with spaces
+        # Remove trailing numbers after dot or hyphen
+        name_candidate = name_candidate.split('.')[0]
+        name_candidate = ''.join([c for c in name_candidate if not c.isdigit()]).strip()
+        # Replace underscores and hyphens with space
         name_candidate = name_candidate.replace("_", " ").replace("-", " ")
-        return name_candidate.lower().strip()
+        # Convert multiple spaces to single space and lowercase
+        name_candidate = ' '.join(name_candidate.split()).lower()
+        return name_candidate
     except:
         return "unknown celebrity"
+
 
 def display_results(matches, user_img_path):
     if not matches:
@@ -252,3 +261,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
