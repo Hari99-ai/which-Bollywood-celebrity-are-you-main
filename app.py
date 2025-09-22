@@ -1,101 +1,54 @@
 import os
 import streamlit as st
-from PIL import Image
-
-# Optional import; may need to install
-try:
-    import gdown
-except ImportError:
-    st.error("gdown not installed. `pip install gdown` and refresh.")
-    raise
+from pydrive2.auth import GoogleAuth
+from pydrive2.drive import GoogleDrive
 
 # -----------------------------
-# Setup constants
+# Setup
 # -----------------------------
 CELEB_DB_FOLDER = "celebrity_db"
 os.makedirs(CELEB_DB_FOLDER, exist_ok=True)
 
-DRV_FOLDER_URL = "https://drive.google.com/drive/folders/1qDeCZPwzsmvXwvfolkqcXQdWOH-wXYIr?usp=drive_link"
+# Your folder ID (from link: https://drive.google.com/drive/folders/<FOLDER_ID>)
+FOLDER_ID = "1qDeCZPwzsmvXwvfolkqcXQdWOH-wXYIr"
 
 # -----------------------------
-# Function to download folder via gdown
+# Authenticate
 # -----------------------------
-def download_celebrity_folder(url, target_folder):
-    try:
-        st.info("📥 Trying to download folder via gdown.download_folder...")
-        # remaining_ok=True may allow more files if folder > 50
-        gdown.download_folder(url, output=target_folder, quiet=False, use_cookies=False, remaining_ok=True)
-        return True
-    except Exception as e:
-        st.warning(f"⚠️ download_folder failed: {e}")
-        return False
+def gdrive_login():
+    gauth = GoogleAuth()
+    gauth.LocalWebserverAuth()   # will open browser for auth
+    return GoogleDrive(gauth)
 
 # -----------------------------
-# Main Logic
+# Download all files from folder
 # -----------------------------
-def ensure_celebrity_folder():
-    # If folder already has image files, assume it's ready
-    existing = [f for f in os.listdir(CELEB_DB_FOLDER) if f.lower().endswith(('.jpg', '.jpeg', '.png', '.webp'))]
-    if existing:
-        return True
-
-    # Try download via gdown
-    ok = download_celebrity_folder(DRV_FOLDER_URL, CELEB_DB_FOLDER)
-    if ok:
-        st.success("✅ Celebrity folder downloaded successfully.")
-        return True
-    else:
-        st.error("❌ Could not download celebrity folder via gdown. Please check:")
-        st.text("- The folder is set to 'Anyone with link' (Viewer)")
-        st.text("- The folder is not too large (or try splitting it)")
-        st.text("- Network / firewall restrictions")
-        return False
+def download_folder(drive, folder_id, target_folder):
+    file_list = drive.ListFile({'q': f"'{folder_id}' in parents and trashed=false"}).GetList()
+    for file in file_list:
+        fname = os.path.join(target_folder, file['title'])
+        if not os.path.exists(fname):
+            st.write(f"📥 Downloading {file['title']}...")
+            file.GetContentFile(fname)
 
 # -----------------------------
-# App
+# Streamlit App
 # -----------------------------
 def main():
     st.title("🎬 Bollywood Celebrity Matcher")
 
-    # Ensure dataset is present
-    data_ready = ensure_celebrity_folder()
+    if st.button("📥 Download Celebrity DB from Drive"):
+        try:
+            drive = gdrive_login()
+            download_folder(drive, FOLDER_ID, CELEB_DB_FOLDER)
+            st.success(f"✅ Download complete! {len(os.listdir(CELEB_DB_FOLDER))} files in celebrity_db.")
+        except Exception as e:
+            st.error(f"❌ Failed: {e}")
 
-    if not data_ready:
-        st.stop()
-
-    st.success(f"✅ {len(os.listdir(CELEB_DB_FOLDER))} files found in celebrity_db.")
-
-    # UI input options
-    option = st.radio("Choose your input:", ["📁 Upload Image", "📷 Take a Selfie", "🖼 Check Dataset Image"])
-    image = None
-
-    if option == "📁 Upload Image":
-        uploaded_file = st.file_uploader("Choose your image", type=["jpg","jpeg","png","webp"])
-        if uploaded_file:
-            image = Image.open(uploaded_file).convert("RGB")
-            st.image(image, caption="Uploaded", width=200)
-
-    elif option == "📷 Take a Selfie":
-        camera_file = st.camera_input("Take a Selfie")
-        if camera_file:
-            image = Image.open(camera_file).convert("RGB")
-            st.image(image, caption="Selfie", width=200)
-
-    elif option == "🖼 Check Dataset Image":
-        celebs = [f for f in os.listdir(CELEB_DB_FOLDER) if f.lower().endswith(('.jpg','jpeg','png','webp'))]
-        if celebs:
-            selected = st.selectbox("Select a celebrity image", celebs)
-            img_path = os.path.join(CELEB_DB_FOLDER, selected)
-            try:
-                image = Image.open(img_path).convert("RGB")
-                st.image(image, caption=selected, width=200)
-            except Exception as e:
-                st.error(f"❌ Could not load image {selected}: {e}")
-        else:
-            st.warning("⚠️ No valid image files in celebrity_db.")
-
-    if image:
-        st.success("✅ Image loaded! You can now run matching logic.")
+    # Show existing files
+    if os.listdir(CELEB_DB_FOLDER):
+        st.write("Celebrity images available:")
+        st.write(os.listdir(CELEB_DB_FOLDER)[:10])  # preview first 10
 
 if __name__ == "__main__":
     main()
