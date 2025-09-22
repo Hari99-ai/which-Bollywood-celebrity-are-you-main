@@ -5,9 +5,8 @@ from io import BytesIO
 
 # Sample public celebrity images
 CELEB_IMAGES = {
-    "Bipasha Basu": "https://raw.githubusercontent.com/your-username/celebrity-db/main/bipasha_basu.jpg",
-    "Aamir Khan": "https://raw.githubusercontent.com/your-username/celebrity-db/main/aamir_khan.jpg",
-    "Abhay Deol": "https://raw.githubusercontent.com/your-username/celebrity-db/main/abhay_deol.jpg"
+    "Bipasha Basu": "https://raw.githubusercontent.com/hari/celebrity-db/main/bipasha_basu.jpg",
+
 }
 
 st.title("🎬 Bollywood Celebrity Matcher - Test Version")
@@ -21,3 +20,4 @@ if selected_name:
         st.success(f"✅ {selected_name} image loaded successfully!")
     except Exception as e:
         st.error(f"❌ Could not load image: {e}")
+
