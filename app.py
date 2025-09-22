@@ -37,7 +37,7 @@ def import_libraries():
 # Streamlit Page Config
 # -----------------------------
 st.set_page_config(
-    page_title="Bollywood Celebrity Matcher",
+    page_title="Celebrity Matcher",
     page_icon="🎬",
     layout="wide",
     initial_sidebar_state="collapsed"
@@ -283,7 +283,7 @@ def display_results(matches, user_img_path, all_filenames):
 # Main Application
 # -----------------------------
 def main():
-    st.markdown('<h1 class="main-header">🎬 Bollywood Celebrity Matcher</h1>', unsafe_allow_html=True)
+    st.markdown('<h1 class="main-header">🎬 Celebrity Matcher</h1>', unsafe_allow_html=True)
     st.markdown("""<div style="text-align:center; margin-bottom:2rem;">
     <h3>Discover your Bollywood doppelgänger! ✨</h3>
     <p>Upload your photo and let AI find your celebrity twin.</p>
@@ -353,3 +353,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
