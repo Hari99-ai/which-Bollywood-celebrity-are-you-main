@@ -137,11 +137,21 @@ def compute_similarities(user_features, celebrity_features, filenames, top_k=3):
     return sorted(similarities, key=lambda x: x[0], reverse=True)[:top_k]
 
 def get_celebrity_name(filepath):
+    """
+    Extract celebrity name from a path like Data\aamir Khan\abhay Deol
+    Returns: lowercase, properly spaced name, e.g., 'abhay deol'
+    """
     try:
-        name = os.path.basename(filepath).split('.')[0].replace('_',' ').replace('-',' ')
-        return ' '.join(word.capitalize() for word in name.split())
+        # Use os.path.basename to get the last part of the path
+        name = os.path.basename(filepath)
+        # Remove extension if present
+        name = os.path.splitext(name)[0]
+        # Replace underscores and hyphens with spaces
+        name = name.replace('_', ' ').replace('-', ' ')
+        # Convert to lowercase
+        return name.lower().strip()
     except:
-        return "Unknown Celebrity"
+        return "unknown celebrity"
 
 def display_results(matches, user_img_path):
     if not matches:
