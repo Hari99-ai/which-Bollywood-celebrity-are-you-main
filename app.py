@@ -98,6 +98,7 @@ def load_celebrity_data():
             features = pickle.load(f)
         with open("successful_filenames.pkl", "rb") as f:
             filenames = pickle.load(f)
+        # Clean invalid entries
         valid_indices = [i for i, (feat, name) in enumerate(zip(features, filenames)) if feat is not None and len(feat)>0 and name]
         features = [features[i] for i in valid_indices]
         filenames = [filenames[i] for i in valid_indices]
@@ -137,11 +138,14 @@ def compute_similarities(user_features, celebrity_features, filenames, top_k=3):
 
 def get_celebrity_name(filepath):
     try:
+        # Normalize path separators
         parts = filepath.replace("\\", "/").split("/")
         name_candidate = next((p for p in reversed(parts) if p.strip()), "")
+        # Remove extension, trailing numbers
         name_candidate = os.path.splitext(name_candidate)[0]
         name_candidate = name_candidate.split('.')[0]
         name_candidate = ''.join([c for c in name_candidate if not c.isdigit()]).strip()
+        # Replace underscores/hyphens and normalize spaces
         name_candidate = name_candidate.replace("_", " ").replace("-", " ")
         name_candidate = ' '.join(name_candidate.split()).lower()
         return name_candidate
@@ -166,16 +170,18 @@ def display_results(matches, user_img_path):
         st.success(f"🌟 Great match! {top_similarity:.1f}% similarity!")
 
     st.markdown("---")
+
     for rank, (sim, celeb_path) in enumerate(matches, 1):
         celeb_name = get_celebrity_name(celeb_path)
         st.markdown(f'<div class="match-container">', unsafe_allow_html=True)
-        col1, col2 = st.columns([1, 2])
+        col1, col2 = st.columns([1,2])
 
         with col1:
             if os.path.exists(celeb_path):
                 st.image(celeb_path, caption=celeb_name, width=150)
             else:
-                st.markdown(f"""<div style="background: linear-gradient(45deg, #FF6B35, #F7931E); color:white; padding:2rem; border-radius:10px; text-align:center; margin:1rem 0;">
+                st.markdown(f"""<div style="background: linear-gradient(45deg, #FF6B35, #F7931E); 
+                    color:white; padding:2rem; border-radius:10px; text-align:center; margin:1rem 0;">
                     <h3>🎬</h3><h4>{celeb_name}</h4></div>""", unsafe_allow_html=True)
 
         with col2:
@@ -214,19 +220,22 @@ def main():
     if celebrity_features is None:
         st.error("❌ Failed to load celebrity database.")
         st.stop()
-    st.success(f"✅ Ready! {len(celebrity_features)} profiles loaded.")
+    st.success(f"✅ Ready! {len(celebrity_features)} celebrity profiles loaded.")
 
     st.markdown("## 📸 Upload Your Photo or Take a Selfie")
     tab1, tab2 = st.tabs(["📁 Upload Image", "📷 Camera"])
     image_file = None
+
     with tab1:
         uploaded_file = st.file_uploader("Choose your image", type=["jpg","jpeg","png","webp"])
-        if uploaded_file: 
+        if uploaded_file:
             image_file = uploaded_file
             st.image(uploaded_file, width=300)
+
     with tab2:
-        camera_photo = st.camera_input("Take a selfie (Allow camera access)")
-        if camera_photo: 
+        st.info("Allow camera access when prompted.")
+        camera_photo = st.camera_input("Take a selfie")
+        if camera_photo:
             image_file = camera_photo
             st.image(camera_photo, width=300)
 
@@ -239,8 +248,10 @@ def main():
             user_features = extract_features_safe(save_path, DeepFace)
             if user_features is not None:
                 matches = compute_similarities(user_features, celebrity_features, filenames)
-                if matches: display_results(matches, save_path)
-                else: st.error("❌ No suitable matches found.")
+                if matches:
+                    display_results(matches, save_path)
+                else:
+                    st.error("❌ No suitable matches found.")
             else:
                 st.error("❌ Could not analyze photo. Try a clearer image.")
             os.remove(save_path)
