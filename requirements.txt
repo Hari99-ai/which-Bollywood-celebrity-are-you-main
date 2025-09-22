@@ -9,3 +9,4 @@ gdown>=4.7.0
 mtcnn==0.1.1
 protobuf>=3.20.0,<5.0.0
 
+kaggle
