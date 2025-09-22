@@ -1,87 +1,101 @@
 import os
-import gdown
-import zipfile
 import streamlit as st
 from PIL import Image
 
-# ---------------------------
-# Step 1: Setup local folder
-# ---------------------------
+# Optional import; may need to install
+try:
+    import gdown
+except ImportError:
+    st.error("gdown not installed. `pip install gdown` and refresh.")
+    raise
+
+# -----------------------------
+# Setup constants
+# -----------------------------
 CELEB_DB_FOLDER = "celebrity_db"
 os.makedirs(CELEB_DB_FOLDER, exist_ok=True)
 
-# ---------------------------
-# Step 2: Google Drive ZIP link
-# ---------------------------
-# ⚠️ Replace with your actual FILE_ID from Google Drive
-# Example link: https://drive.google.com/file/d/FILE_ID/view?usp=sharing
-drive_zip_url = "https://drive.google.com/uc?id=YOUR_FILE_ID"
+DRV_FOLDER_URL = "https://drive.google.com/drive/folders/1qDeCZPwzsmvXwvfolkqcXQdWOH-wXYIr?usp=drive_link"
 
-zip_path = "celebrity_db.zip"
-
-# Download ZIP only if it doesn't exist
-if not os.path.exists(zip_path):
-    st.info("📥 Downloading celebrity database ZIP from Google Drive...")
+# -----------------------------
+# Function to download folder via gdown
+# -----------------------------
+def download_celebrity_folder(url, target_folder):
     try:
-        gdown.download(drive_zip_url, zip_path, quiet=False)
+        st.info("📥 Trying to download folder via gdown.download_folder...")
+        # remaining_ok=True may allow more files if folder > 50
+        gdown.download_folder(url, output=target_folder, quiet=False, use_cookies=False, remaining_ok=True)
+        return True
     except Exception as e:
-        st.error(f"❌ Failed to download ZIP: {e}")
+        st.warning(f"⚠️ download_folder failed: {e}")
+        return False
 
-# Extract only if folder is empty
-if not os.listdir(CELEB_DB_FOLDER) and os.path.exists(zip_path):
-    try:
-        with zipfile.ZipFile(zip_path, 'r') as zip_ref:
-            zip_ref.extractall(CELEB_DB_FOLDER)
-        st.success("✅ Celebrity database extracted successfully!")
-    except Exception as e:
-        st.error(f"❌ Failed to extract ZIP: {e}")
+# -----------------------------
+# Main Logic
+# -----------------------------
+def ensure_celebrity_folder():
+    # If folder already has image files, assume it's ready
+    existing = [f for f in os.listdir(CELEB_DB_FOLDER) if f.lower().endswith(('.jpg', '.jpeg', '.png', '.webp'))]
+    if existing:
+        return True
 
-# ---------------------------
-# Step 3: Streamlit app
-# ---------------------------
+    # Try download via gdown
+    ok = download_celebrity_folder(DRV_FOLDER_URL, CELEB_DB_FOLDER)
+    if ok:
+        st.success("✅ Celebrity folder downloaded successfully.")
+        return True
+    else:
+        st.error("❌ Could not download celebrity folder via gdown. Please check:")
+        st.text("- The folder is set to 'Anyone with link' (Viewer)")
+        st.text("- The folder is not too large (or try splitting it)")
+        st.text("- Network / firewall restrictions")
+        return False
+
+# -----------------------------
+# App
+# -----------------------------
 def main():
     st.title("🎬 Bollywood Celebrity Matcher")
 
-    # UI options
+    # Ensure dataset is present
+    data_ready = ensure_celebrity_folder()
+
+    if not data_ready:
+        st.stop()
+
+    st.success(f"✅ {len(os.listdir(CELEB_DB_FOLDER))} files found in celebrity_db.")
+
+    # UI input options
     option = st.radio("Choose your input:", ["📁 Upload Image", "📷 Take a Selfie", "🖼 Check Dataset Image"])
     image = None
 
     if option == "📁 Upload Image":
-        uploaded_file = st.file_uploader("Choose your image", type=["jpg", "jpeg", "png", "webp"])
-        if uploaded_file is not None:
-            try:
-                image = Image.open(uploaded_file).convert("RGB")
-                st.image(image, width=200, caption="Uploaded Image")
-            except Exception as e:
-                st.error(f"❌ Could not open uploaded file. Error: {e}")
+        uploaded_file = st.file_uploader("Choose your image", type=["jpg","jpeg","png","webp"])
+        if uploaded_file:
+            image = Image.open(uploaded_file).convert("RGB")
+            st.image(image, caption="Uploaded", width=200)
 
     elif option == "📷 Take a Selfie":
-        camera_file = st.camera_input("Take a photo")
-        if camera_file is not None:
-            try:
-                image = Image.open(camera_file).convert("RGB")
-                st.image(image, width=200, caption="Selfie")
-            except Exception as e:
-                st.error(f"❌ Could not open captured photo. Error: {e}")
+        camera_file = st.camera_input("Take a Selfie")
+        if camera_file:
+            image = Image.open(camera_file).convert("RGB")
+            st.image(image, caption="Selfie", width=200)
 
     elif option == "🖼 Check Dataset Image":
-        if os.path.exists(CELEB_DB_FOLDER):
-            celeb_list = [f for f in os.listdir(CELEB_DB_FOLDER) if f.lower().endswith((".jpg", ".jpeg", ".png", ".webp"))]
-            if celeb_list:
-                selected_celeb = st.selectbox("Pick a celebrity", celeb_list)
-                img_path = os.path.join(CELEB_DB_FOLDER, selected_celeb)
-                try:
-                    image = Image.open(img_path).convert("RGB")
-                    st.image(image, width=200, caption=selected_celeb)
-                except Exception as e:
-                    st.error(f"❌ Could not load dataset image. Error: {e}")
-            else:
-                st.warning("⚠️ No celebrity images found in the database.")
+        celebs = [f for f in os.listdir(CELEB_DB_FOLDER) if f.lower().endswith(('.jpg','jpeg','png','webp'))]
+        if celebs:
+            selected = st.selectbox("Select a celebrity image", celebs)
+            img_path = os.path.join(CELEB_DB_FOLDER, selected)
+            try:
+                image = Image.open(img_path).convert("RGB")
+                st.image(image, caption=selected, width=200)
+            except Exception as e:
+                st.error(f"❌ Could not load image {selected}: {e}")
         else:
-            st.error("❌ Celebrity database not found!")
+            st.warning("⚠️ No valid image files in celebrity_db.")
 
-    if image is not None:
-        st.success("✅ Image loaded successfully! Ready for matching...")
+    if image:
+        st.success("✅ Image loaded! You can now run matching logic.")
 
 if __name__ == "__main__":
     main()
