@@ -5,50 +5,48 @@ from io import BytesIO
 import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity
 
-# -----------------------------
-# Sample celebrity images (online URLs for testing)
-# -----------------------------
-CELEB_IMAGES = {
-    "Bipasha Basu": "https://raw.githubusercontent.com/Hari99-ai/test-celeb-images/main/bipasha_basu.jpg",
-    "Aamir Khan": "https://raw.githubusercontent.com/Hari99-ai/test-celeb-images/main/aamir_khan.jpg",
-    "Abhay Deol": "https://raw.githubusercontent.com/Hari99-ai/test-celeb-images/main/abhay_deol.jpg"
-}
-
-st.title("🎬 Bollywood Celebrity Matcher - Online Test")
+st.title("🎬 Bollywood Celebrity Matcher - Online Image Test")
 
 # -----------------------------
-# User Input
+# User Input Options
 # -----------------------------
-option = st.radio("Choose your input:", ["📁 Upload Image", "📷 Take a Selfie", "🖼 Pick Online Test Image"])
+option = st.radio("Choose your input:", ["📁 Upload Image", "📷 Take a Selfie", "🌐 Use Online Image URL"])
 user_image = None
 
+# Upload from local
 if option == "📁 Upload Image":
     uploaded_file = st.file_uploader("Choose your image", type=["jpg", "jpeg", "png", "webp"])
     if uploaded_file:
         user_image = Image.open(uploaded_file).convert("RGB")
         st.image(user_image, caption="Your Image", width=250)
 
+# Take a selfie
 elif option == "📷 Take a Selfie":
     camera_file = st.camera_input("Take a selfie")
     if camera_file:
         user_image = Image.open(camera_file).convert("RGB")
         st.image(user_image, caption="Your Selfie", width=250)
 
-elif option == "🖼 Pick Online Test Image":
-    celeb_name = st.selectbox("Pick a celebrity image:", list(CELEB_IMAGES.keys()))
-    if celeb_name:
-        response = requests.get(CELEB_IMAGES[celeb_name])
-        user_image = Image.open(BytesIO(response.content)).convert("RGB")
-        st.image(user_image, caption=celeb_name, width=250)
+# Online image via URL
+elif option == "🌐 Use Online Image URL":
+    url = st.text_input("Enter image URL")
+    if url:
+        try:
+            response = requests.get(url)
+            user_image = Image.open(BytesIO(response.content)).convert("RGB")
+            st.image(user_image, caption="Online Image", width=250)
+        except Exception as e:
+            st.error(f"❌ Failed to load image from URL: {e}")
 
 # -----------------------------
-# Test Matching (Fake embeddings for demo)
+# Demo Matching (Random for testing)
 # -----------------------------
 if user_image is not None and st.button("🔍 Find My Celebrity Match!"):
     st.info("🔄 Computing similarity (demo)...")
     
-    # For testing purposes, random similarity scores
-    similarities = {name: np.random.randint(50, 100) for name in CELEB_IMAGES.keys()}
+    # Fake celeb dataset for demo
+    CELEB_IMAGES = ["Bipasha Basu", "Aamir Khan", "Abhay Deol"]
+    similarities = {name: np.random.randint(50, 100) for name in CELEB_IMAGES}
     sorted_matches = sorted(similarities.items(), key=lambda x: x[1], reverse=True)
 
     st.markdown("## 🎭 Your Matches")
