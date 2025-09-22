@@ -1,56 +1,47 @@
-import os
 import streamlit as st
-from pydrive2.auth import GoogleAuth
-from pydrive2.drive import GoogleDrive
 from PIL import Image
+import requests
 from io import BytesIO
 
 # -----------------------------
-# Setup
+# Sample celebrity images online (replace with real URLs)
 # -----------------------------
-CELEB_DB_FOLDER = "celebrity_db"
-os.makedirs(CELEB_DB_FOLDER, exist_ok=True)
-FOLDER_ID = "1qDeCZPwzsmvXwvfolkqcXQdWOH-wXYIr"  # your Drive folder ID
-
-# -----------------------------
-# Authenticate with Google Drive
-# -----------------------------
-def gdrive_login():
-    gauth = GoogleAuth()
-    gauth.LocalWebserverAuth()  # opens browser for first-time auth
-    return GoogleDrive(gauth)
-
-# -----------------------------
-# Download image from Google Drive API
-# -----------------------------
-def get_images(drive, folder_id):
-    file_list = drive.ListFile({'q': f"'{folder_id}' in parents and trashed=false"}).GetList()
-    images = []
-    for file in file_list:
-        # Skip if already downloaded
-        local_path = os.path.join(CELEB_DB_FOLDER, file['title'])
-        if not os.path.exists(local_path):
-            st.write(f"📥 Downloading {file['title']}...")
-            file.GetContentFile(local_path)
-        images.append(local_path)
-    return images
+CELEB_IMAGES = {
+    "Aamir Khan": "https://raw.githubusercontent.com/hari99-ai/test-images/main/aamir_khan.jpg",
+    "Abhay Deol": "https://raw.githubusercontent.com/hari99-ai/test-images/main/abhay_deol.jpg",
+    "Bipasha Basu": "https://raw.githubusercontent.com/hari99-ai/test-images/main/bipasha_basu.jpg"
+}
 
 # -----------------------------
 # Streamlit App
 # -----------------------------
 def main():
-    st.title("🎬 Bollywood Celebrity Matcher")
+    st.title("🎬 Bollywood Celebrity Matcher (Online Test)")
 
-    drive = gdrive_login()
-    celeb_images = get_images(drive, FOLDER_ID)
+    st.markdown("## 🖼 View Dataset Image")
+    celeb_name = st.selectbox("Pick a celebrity image to view:", list(CELEB_IMAGES.keys()))
 
-    st.success(f"✅ {len(celeb_images)} celebrity images available!")
+    if celeb_name:
+        url = CELEB_IMAGES[celeb_name]
+        try:
+            response = requests.get(url)
+            img = Image.open(BytesIO(response.content)).convert("RGB")
+            st.image(img, caption=celeb_name, width=250)
+            st.success(f"✅ Loaded image of {celeb_name} successfully!")
+        except Exception as e:
+            st.error(f"❌ Could not load image: {e}")
 
-    # Show any image from dataset
-    selected_file = st.selectbox("Pick a celebrity image to view:", celeb_images)
-    if selected_file:
-        img = Image.open(selected_file).convert("RGB")
-        st.image(img, caption=os.path.basename(selected_file), width=250)
+    st.markdown("---")
+    st.markdown("### 📸 Test Upload or Camera Input")
+    upload_file = st.file_uploader("Upload your image", type=["jpg", "jpeg", "png", "webp"])
+    camera_file = st.camera_input("Take a selfie")
+
+    if upload_file:
+        img = Image.open(upload_file).convert("RGB")
+        st.image(img, caption="Uploaded Image", width=250)
+    elif camera_file:
+        img = Image.open(camera_file).convert("RGB")
+        st.image(img, caption="Camera Image", width=250)
 
 if __name__ == "__main__":
     main()
