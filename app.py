@@ -137,9 +137,6 @@ def compute_similarities(user_features, celebrity_features, filenames, top_k=3):
     return sorted(similarities, key=lambda x: x[0], reverse=True)[:top_k]
 
 def get_celebrity_name(filepath):
-    """
-    Extract clean celebrity name from filename/path
-    """
     try:
         parts = filepath.replace("\\", "/").split("/")
         name_candidate = next((p for p in reversed(parts) if p.strip()), "")
@@ -157,43 +154,29 @@ def display_results(matches, user_img_path):
         st.warning("❌ No matches found.")
         return
 
-    st.markdown("## 🎭 Your Bollywood Celebrity Matches")
+    st.markdown("## 🎭 Matches")
     
     col1, col2, col3 = st.columns([1,2,1])
     with col2:
-        st.image(user_img_path, caption="Your Photo", width=250)
+        st.image(user_img_path, caption="Selected Image", width=250)
     
     top_similarity = matches[0][0]
     if top_similarity >= 75:
         st.balloons()
-        st.success(f"🎉 Amazing! {top_similarity:.1f}% similarity with top match!")
+        st.success(f"🎉 Top match: {top_similarity:.1f}% similarity!")
     elif top_similarity >= 60:
-        st.success(f"🌟 Great match! {top_similarity:.1f}% similarity!")
+        st.success(f"🌟 Good match: {top_similarity:.1f}% similarity!")
 
     st.markdown("---")
-
     for rank, (sim, celeb_path) in enumerate(matches, 1):
         celeb_name = get_celebrity_name(celeb_path)
         st.markdown(f'<div class="match-container">', unsafe_allow_html=True)
         col1, col2 = st.columns([1,2])
-
         with col1:
-            if os.path.exists(celeb_path):
-                st.image(celeb_path, caption=celeb_name, width=150)
-            else:
-                st.markdown(f"""<div style="background: linear-gradient(45deg, #FF6B35, #F7931E);
-                    color:white; padding:2rem; border-radius:10px; text-align:center; margin:1rem 0;">
-                    <h3>🎬</h3><h4>{celeb_name}</h4></div>""", unsafe_allow_html=True)
-
+            st.markdown(f"**{celeb_name}**", unsafe_allow_html=True)
         with col2:
-            st.markdown(f"### 🏆 #{rank} Match")
             st.metric("Similarity Score", f"{sim:.1f}%")
             st.progress(min(sim/100,1.0))
-            if sim >= 75: st.success("🔥 Excellent Match!")
-            elif sim >= 60: st.info("⭐ Very Good Match")
-            elif sim >= 45: st.info("👍 Good Match")
-            else: st.info("🤔 Fair Match")
-
         st.markdown('</div>', unsafe_allow_html=True)
         st.markdown("---")
 
@@ -202,10 +185,6 @@ def display_results(matches, user_img_path):
 # -----------------------------
 def main():
     st.markdown('<h1 class="main-header">🎬 Bollywood Celebrity Matcher</h1>', unsafe_allow_html=True)
-    st.markdown("""<div style="text-align:center; margin-bottom:2rem;">
-    <h3>Discover your Bollywood doppelgänger! ✨</h3>
-    <p>Upload your photo and let AI find your celebrity twin.</p>
-    </div>""", unsafe_allow_html=True)
 
     gdown, DeepFace = import_libraries()
     setup_directories()
@@ -223,52 +202,52 @@ def main():
         st.stop()
     st.success(f"✅ Ready! {len(celebrity_features)} profiles loaded.")
 
-    st.markdown("## 📸 Upload Your Photo")
-    tab1, tab2 = st.tabs(["📁 Upload Image", "📷 Take a Selfie"])
-    image_file = None
+    # Tabs for user image or dataset image
+    tab1, tab2, tab3 = st.tabs(["📁 Upload Image", "📷 Take a Selfie", "🖼 Check Dataset Image"])
 
+    image_file = None
     with tab1:
         uploaded_file = st.file_uploader("Choose your image", type=["jpg","jpeg","png","webp"])
         if uploaded_file:
             image_file = uploaded_file
             st.image(uploaded_file, width=300)
 
-    # Camera input requested **only when tab clicked**
     with tab2:
         camera_photo = st.camera_input("Take a selfie")
         if camera_photo:
             image_file = camera_photo
             st.image(camera_photo, width=300)
 
-    if image_file and st.button("🔍 Find My Celebrity Match!"):
+    with tab3:
+        selected_file = st.selectbox("Select a dataset image", filenames)
+        if selected_file:
+            image_file = selected_file
+            st.image(selected_file, width=200)
+
+    if image_file and st.button("🔍 Find Match!"):
         try:
-            timestamp = int(time.time())
-            save_path = f"uploads/user_{timestamp}.jpg"
-            img = Image.open(image_file).convert('RGB')
-            img.save(save_path, 'JPEG', quality=85)
-            user_features = extract_features_safe(save_path, DeepFace)
+            # If dataset image, we don't need to save
+            if isinstance(image_file, str):
+                img_path = image_file
+            else:
+                timestamp = int(time.time())
+                img_path = f"uploads/user_{timestamp}.jpg"
+                img = Image.open(image_file).convert('RGB')
+                img.save(img_path, 'JPEG', quality=85)
+
+            user_features = extract_features_safe(img_path, DeepFace)
             if user_features is not None:
                 matches = compute_similarities(user_features, celebrity_features, filenames)
-                if matches: display_results(matches, save_path)
+                if matches: display_results(matches, img_path)
                 else: st.error("❌ No suitable matches found.")
             else:
-                st.error("❌ Could not analyze photo. Try a clearer image.")
-            os.remove(save_path)
+                st.error("❌ Could not analyze image.")
+            
+            if not isinstance(image_file, str):
+                os.remove(img_path)
+
         except Exception as e:
             st.error(f"❌ Processing error: {e}")
 
-    with st.expander("💡 Tips for Best Results"):
-        st.markdown("""
-        **For Optimal Matching:** Clear, front-facing photos, no sunglasses/masks, well-lit, recent images.
-        Supported formats: JPG, JPEG, PNG, WebP
-        """)
-
-    st.markdown("---")
-    st.markdown("""<div style="text-align:center; color:#666; margin-top:2rem;">
-        <p>🎬 <strong>Bollywood Celebrity Matcher</strong> | created by ❤️ Hari Om</p>
-        <p><em>Entertainment purposes only. Results based on facial feature similarity.</em></p>
-        </div>""", unsafe_allow_html=True)
-
 if __name__ == "__main__":
     main()
-
