@@ -101,16 +101,6 @@ st.markdown("""
         border-radius: 10px;
         margin: 10px 0;
     }
-    
-    .placeholder-image {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
-        padding: 60px 20px;
-        text-align: center;
-        border-radius: 10px;
-        font-size: 1.2rem;
-        font-weight: bold;
-    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -207,69 +197,55 @@ def recommend_top_n(feature_list, features, n=3):
 def extract_celebrity_name(file_path):
     """Extract celebrity name from file path"""
     try:
-        # Convert forward slashes to backslashes for Windows compatibility
+        # Convert path separators for consistency
         file_path = file_path.replace('\\', '/')
-        
-        # Split the path and get meaningful parts
         parts = file_path.split('/')
         
-        # Try different approaches to extract celebrity name
+        # Try to find celebrity name in directory structure
         celebrity_name = None
         
-        # Method 1: Look for directory name (most common)
+        # Look for parent directory name (most common case)
         if len(parts) >= 2:
-            potential_name = parts[-2]  # Parent directory
-            if potential_name and potential_name.lower() not in ['data', 'images', 'celebrity_db', 'bollywood_celeb_faces_0', 'dataset']:
+            potential_name = parts[-2]
+            # Filter out common non-celebrity directory names
+            if potential_name.lower() not in ['data', 'images', 'celebrity_db', 'bollywood_celeb_faces_0', 'dataset', 'main', 'which-bollywood-celebrity-are-you-main']:
                 celebrity_name = potential_name
         
-        # Method 2: If no good directory name, use filename
-        if not celebrity_name or len(celebrity_name) < 2:
+        # If no good directory name, use filename without extension
+        if not celebrity_name or len(celebrity_name) < 3:
             filename = os.path.basename(file_path)
             celebrity_name = os.path.splitext(filename)[0]
         
-        # Method 3: If still no good name, try to extract from full path
-        if not celebrity_name or celebrity_name.lower() in ['main', 'image', 'photo', 'pic']:
-            # Look for recognizable names in the path
-            path_lower = file_path.lower()
-            
-            # Common Bollywood celebrity names to look for
-            celebrity_keywords = [
-                'shah_rukh_khan', 'shahrukh_khan', 'srk',
-                'salman_khan', 'aamir_khan', 'akshay_kumar',
-                'hrithik_roshan', 'ranbir_kapoor', 'ranveer_singh',
-                'deepika_padukone', 'priyanka_chopra', 'katrina_kaif',
-                'alia_bhatt', 'kareena_kapoor', 'sonam_kapoor',
-                'anushka_sharma', 'vidya_balan', 'kangana_ranaut'
-            ]
-            
-            for keyword in celebrity_keywords:
-                if keyword in path_lower:
-                    celebrity_name = keyword
-                    break
-        
         # Clean up the name
         if celebrity_name:
+            # Remove common prefixes/suffixes
             celebrity_name = celebrity_name.replace('_', ' ').replace('-', ' ')
-            celebrity_name = ' '.join(word.capitalize() for word in celebrity_name.split())
-            return celebrity_name
-        else:
-            # Fallback: use a generic name with index
-            return f"Bollywood Celebrity"
+            # Remove file extensions and numbers
+            import re
+            celebrity_name = re.sub(r'\d+', '', celebrity_name)  # Remove numbers
+            celebrity_name = re.sub(r'\.(jpg|jpeg|png|webp)$', '', celebrity_name, flags=re.IGNORECASE)
             
-    except Exception as e:
-        return "Unknown Celebrity"
+            # Capitalize words
+            celebrity_name = ' '.join(word.capitalize() for word in celebrity_name.split() if word)
+            
+            # If it's still generic, make it more specific
+            if celebrity_name.lower() in ['main', 'image', 'photo', 'pic', '']:
+                return f"Bollywood Star {hash(file_path) % 100}"
+            
+            return celebrity_name if celebrity_name else "Unknown Celebrity"
+        
+        return "Mystery Celebrity"
+    except:
+        return "Bollywood Celebrity"
 
 def create_progress_bar(score):
     """Create animated progress bar"""
     if score >= 80:
         gradient = "linear-gradient(90deg, #28a745, #20c997)"
-        color = "#28a745"
     elif score >= 65:
         gradient = "linear-gradient(90deg, #ffc107, #fd7e14)"
-        color = "#ffc107"
     else:
         gradient = "linear-gradient(90deg, #dc3545, #e74c3c)"
-        color = "#dc3545"
     
     return f"""
     <div style="background: #e0e0e0; border-radius: 25px; padding: 3px; margin: 10px 0;">
@@ -296,9 +272,11 @@ def display_celebrity_image(file_path, celebrity_name, rank):
         if os.path.exists(file_path):
             st.image(file_path, use_container_width=True, caption=f"🎭 {celebrity_name}")
         else:
-            # Enhanced fallback: Show placeholder with more information
+            # Enhanced placeholder with rank-based styling
             rank_colors = ["#FFD700", "#C0C0C0", "#CD7F32"]  # Gold, Silver, Bronze
             rank_color = rank_colors[rank] if rank < 3 else "#9B59B6"
+            rank_medals = ["🏆", "🥈", "🥉"]
+            medal = rank_medals[rank] if rank < 3 else "🎭"
             
             st.markdown(f"""
             <div style="
@@ -311,31 +289,20 @@ def display_celebrity_image(file_path, celebrity_name, rank):
                 font-size: 1.1rem;
                 font-weight: bold;
                 margin: 10px 0;
+                min-height: 200px;
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
             ">
-                🎭<br>
-                <div style="font-size: 1.3rem; margin: 10px 0;">{celebrity_name}</div>
-                <div style="font-size: 0.9rem; color: #666;">Celebrity #{rank + 1} Match</div>
-                <div style="font-size: 0.8rem; color: #888; margin-top: 10px;">Image not available in database</div>
+                <div style="font-size: 3rem; margin-bottom: 15px;">{medal}</div>
+                <div style="font-size: 1.3rem; margin: 10px 0; color: {rank_color};">{celebrity_name}</div>
+                <div style="font-size: 0.9rem; color: #666;">Match #{rank + 1}</div>
+                <div style="font-size: 0.8rem; color: #888; margin-top: 10px;">Celebrity Image Not Available</div>
             </div>
             """, unsafe_allow_html=True)
-    except Exception as e:
-        # Another fallback for any image loading errors
-        st.markdown(f"""
-        <div style="
-            background: linear-gradient(135deg, #E74C3C20, #E74C3C40);
-            border: 2px solid #E74C3C;
-            color: #333;
-            padding: 40px 20px;
-            text-align: center;
-            border-radius: 15px;
-            font-size: 1.1rem;
-            font-weight: bold;
-        ">
-            🎭<br>
-            <div style="font-size: 1.2rem; margin: 10px 0;">{celebrity_name}</div>
-            <div style="font-size: 0.8rem; color: #666;">Celebrity Match</div>
-        </div>
-        """, unsafe_allow_html=True)
+    except Exception:
+        # Simple fallback
+        st.info(f"🎭 {celebrity_name}\n\nCelebrity #{rank + 1}")
 
 # ------------------------
 # Main UI
@@ -348,7 +315,16 @@ st.markdown('<p class="subtitle">✨ Upload a photo or take a selfie to discover
 # Database status
 st.success(f"🎭 Celebrity database loaded successfully! ({len(feature_list)} celebrities ready for matching)")
 
-# Upload or webcam input
+# Debug section (expandable)
+with st.expander("🔍 Debug: Sample celebrity file paths (Click to expand)"):
+    st.write("**Sample file paths from your database:**")
+    for i in range(min(5, len(filenames))):
+        st.code(f"{i+1}. {filenames[i]}")
+        extracted_name = extract_celebrity_name(filenames[i])
+        st.write(f"   → Extracted name: **{extracted_name}**")
+        st.markdown("---")
+
+# Upload method selection
 choice = st.radio("🎯 Choose input method:", ["📂 Upload Image", "📸 Take a Selfie"], horizontal=True)
 uploaded_image = None
 
@@ -364,6 +340,7 @@ else:
     if picture:
         uploaded_image = picture
 
+# Process uploaded image
 if uploaded_image:
     file_path = save_uploaded_image(uploaded_image)
     if file_path:
@@ -407,7 +384,7 @@ if uploaded_image:
                 img_col, info_col = st.columns([1, 1])
                 
                 with img_col:
-                    display_celebrity_image(filenames[top_indices[i]], celebrity_name)
+                    display_celebrity_image(filenames[top_indices[i]], celebrity_name, i)
                 
                 with info_col:
                     # Ranking emoji
