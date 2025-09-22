@@ -265,9 +265,10 @@ def main():
 
     st.markdown("---")
     st.markdown("""<div style="text-align:center; color:#666; margin-top:2rem;">
-        <p>🎬 <strong>Bollywood Celebrity Matcher</strong> | Built with ❤️ Streamlit & AI</p>
+        <p>🎬 <strong>Bollywood Celebrity Matcher</strong> | created by ❤️ Hari Om</p>
         <p><em>Entertainment purposes only. Results based on facial feature similarity.</em></p>
         </div>""", unsafe_allow_html=True)
 
 if __name__ == "__main__":
     main()
+
